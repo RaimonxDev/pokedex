@@ -20,10 +20,7 @@ export class PokemonService {
       const pokemon = await this.pokemonModel.create(createPokemonDto)
       return pokemon
     } catch (error) {
-      if (error.code === 11000) {
-        throw new BadRequestException(`Pokemon exists in db ${JSON.stringify(error.keyValue)}`)
-      }
-      throw new InternalServerErrorException(`Can't create Pokemon - check internal console.log`)
+      this.handlerError(error, `Create`, `Pokemon is exist in Database`)
     }
   }
 
@@ -52,11 +49,35 @@ export class PokemonService {
     return pokemon
   }
 
-  update(id: number, updatePokemonDto: UpdatePokemonDto) {
-    return `This action updates a #${id} pokemon`;
+  async update(term: string, updatePokemonDto: UpdatePokemonDto) {
+
+    const pokemon = await this.findOne(term)
+
+    if (updatePokemonDto.name)
+      updatePokemonDto.name = updatePokemonDto.name.toLowerCase().trim();
+    // {new: true} => nos regresa el nuevo objecto, si no esta especificado devuelve el antiguo object
+    try {
+      await pokemon.updateOne(updatePokemonDto, { new: true })
+      // usamos spread para sobreescribir la informacion del pokemon antes de actualizar
+      // con el nuevo request, y asi devolverle al usuario el objecto con los campos actualizados
+      // NOTA: Esto sucede siempre y cuando no reviente antes la app
+      return { ...pokemon.toJSON(), ...updatePokemonDto }
+
+    } catch (error) {
+      this.handlerError(error, `Update`, `Pokemon is Exists, Can't no update`)
+    }
+
   }
 
   remove(id: number) {
     return `This action removes a #${id} pokemon`;
+  }
+
+  private handlerError(error: any, action: string, message: string) {
+    if (error.code === 11000) {
+      throw new BadRequestException(`${message} ${JSON.stringify(error.keyValue)}`)
+    }
+    throw new InternalServerErrorException(`Can't no ${action} in database - check internal console.log`)
+
   }
 }
